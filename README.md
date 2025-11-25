@@ -10,15 +10,22 @@
 ## Installation
 
 1. Clone this repository
-2. Install dependencies (python 3.10):
+
+2. Install [uv](https://docs.astral.sh/uv/) (if not already installed):
 ```bash
-pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-3. Install Rotated IOU Loss (https://github.com/lilanxiao/Rotated\_IoU)
+
+3. Sync dependencies (Python 3.10):
+```bash
+uv sync
 ```
+
+4. Install Rotated IOU Loss (https://github.com/lilanxiao/Rotated_IoU):
+```bash
 cd third_party/Rotated_IoU/cuda_op
-python setup.py install
-````
+uv run python setup.py install
+```
 
 ## Data preprocessing
 1. Download the dataset https://drive.google.com/file/d/1WGbj8gWn-f-BRwqPKfoY06budBzgM0pu/view?usp=sharing
@@ -54,8 +61,49 @@ Refer to https://github.com/allenai/Holodeck and https://github.com/allenai/obja
 
 2. Run LayoutVLM:
 ```bash
-python main.py --scene_json_file path/to/scene.json --openai_api_key your_api_key
+uv run python main.py --scene_json_file path/to/scene.json --openai_api_key your_api_key
 ```
+
+## Open-Set Scene Generation
+
+Generate scenes from natural language descriptions using the pipeline from Appendix B.1:
+
+```bash
+uv run python generate_scene.py \
+    --task_description "a cozy bedroom with a queen bed and nightstands, 4m x 5m" \
+    --objathor_dir /path/to/objathor-assets \
+    --room_width 4.0 \
+    --room_depth 5.0 \
+    --save_dir ./results/my_bedroom
+```
+
+This will:
+1. Generate layout criteria from the task description using GPT-4o
+2. Generate a list of required objects using GPT-4o
+3. Retrieve matching 3D assets from Objaverse using CLIP+SBERT embeddings
+4. Verify each asset fits the room using GPT-4o Vision
+5. Run LayoutVLM to optimize the final layout
+
+### Prerequisites for Scene Generation
+
+You need pre-computed CLIP/SBERT embeddings for Objaverse assets. These can be obtained from:
+- [objathor](https://github.com/allenai/objathor) - download the asset annotations and features
+
+### Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--task_description` | Natural language room description | Required |
+| `--objathor_dir` | Path to objathor data with features | Required |
+| `--room_width` | Room width in meters | 4.0 |
+| `--room_depth` | Room depth in meters | 5.0 |
+| `--wall_height` | Wall height in meters | 2.5 |
+| `--asset_dir` | Directory to cache downloaded assets | ./objaverse_processed |
+| `--save_dir` | Output directory | ./results/generated_scene |
+| `--retrieval_threshold` | CLIP similarity threshold | 28.0 |
+| `--top_k` | Candidates per object type | 5 |
+| `--skip_verification` | Skip GPT-4 Vision verification | False |
+| `--scene_only` | Only generate scene JSON, skip layout optimization | False |
 
 ## Output
 The script will generate a layout.json file in the specified save directory containing the optimized positions and orientations of all assets in the scene.

@@ -1,2 +1,5 @@
 __pycache__
 ./results/*
+.venv
+*.egg-info
+test_asset_dir
