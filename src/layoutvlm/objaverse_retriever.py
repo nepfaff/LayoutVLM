@@ -49,13 +49,17 @@ class ObjaverseRetriever:
         self.database = compress_json.load(str(annotations_path))
         print(f"Loaded {len(self.database)} asset annotations")
 
-        # Load pre-computed features
-        features_dir = self.objathor_dir
+        # Load pre-computed features - check both root and features/ subdirectory
+        features_dir = self.objathor_dir / "features"
+        if not features_dir.exists():
+            features_dir = self.objathor_dir
+
         clip_features_path = features_dir / "clip_features.pkl"
         sbert_features_path = features_dir / "sbert_features.pkl"
 
         if not clip_features_path.exists():
-            raise FileNotFoundError(f"CLIP features not found at {clip_features_path}")
+            raise FileNotFoundError(f"CLIP features not found at {clip_features_path}. "
+                                    f"Download with: python -m objathor.dataset.download_features --version 2023_09_23 --path {self.objathor_dir.parent}")
         if not sbert_features_path.exists():
             raise FileNotFoundError(f"SBERT features not found at {sbert_features_path}")
 
@@ -70,9 +74,17 @@ class ObjaverseRetriever:
         clip_features = clip_features_dict["img_features"].astype(np.float32)
         sbert_features = sbert_features_dict["text_features"].astype(np.float32)
 
-        # Convert to tensors and normalize CLIP features
+        # Convert to tensors
+        # CLIP features may have shape (N, 3, 768) for 3 views per asset
         self.clip_features = torch.from_numpy(clip_features)
-        self.clip_features = F.normalize(self.clip_features, p=2, dim=-1)
+        if self.clip_features.ndim == 3:
+            # Normalize each view independently
+            self.clip_features = F.normalize(self.clip_features, p=2, dim=-1)
+            self.has_multi_view = True
+        else:
+            self.clip_features = F.normalize(self.clip_features, p=2, dim=-1)
+            self.has_multi_view = False
+
         self.sbert_features = torch.from_numpy(sbert_features)
 
         print(f"Loaded features for {len(self.asset_ids)} assets")
@@ -130,10 +142,18 @@ class ObjaverseRetriever:
             query_feature_clip = query_feature_clip.cpu()
 
         # Compute CLIP similarities
-        clip_similarities = 100 * torch.einsum(
-            "ij, lkj -> ilk", query_feature_clip, self.clip_features
-        )
-        clip_similarities = torch.max(clip_similarities, dim=-1).values
+        if self.has_multi_view:
+            # Features shape: (N_assets, N_views, dim)
+            # Query shape: (N_queries, dim)
+            # Compute similarity for each view and take max
+            clip_similarities = 100 * torch.einsum(
+                "qd, avd -> qav", query_feature_clip, self.clip_features
+            )
+            # Max over views (dim 2), result: (N_queries, N_assets)
+            clip_similarities = torch.max(clip_similarities, dim=-1).values
+        else:
+            # Single view: (N_assets, dim)
+            clip_similarities = 100 * (query_feature_clip @ self.clip_features.T)
 
         # Compute SBERT similarities if available
         if self.use_text and self.sbert_model is not None:

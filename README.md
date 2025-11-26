@@ -16,16 +16,24 @@
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-3. Sync dependencies (Python 3.10):
+3. Install system dependencies (for headless rendering):
+```bash
+sudo apt-get install -y xvfb libgl1-mesa-glx libegl1-mesa
+```
+
+4. Sync dependencies (Python 3.10):
 ```bash
 uv sync
 ```
 
-4. Install Rotated IOU Loss (https://github.com/lilanxiao/Rotated_IoU):
+5. (Optional, requires CUDA) Install Rotated IOU Loss for more accurate bounding box overlap:
 ```bash
+uv add setuptools
 cd third_party/Rotated_IoU/cuda_op
 uv run python setup.py install
+cd ../../..
 ```
+Without this, the optimizer uses a simplified fallback that still works but may be less accurate.
 
 ## Data preprocessing
 1. Download the dataset https://drive.google.com/file/d/1WGbj8gWn-f-BRwqPKfoY06budBzgM0pu/view?usp=sharing
@@ -76,6 +84,33 @@ uv run python generate_scene.py \
     --room_depth 5.0 \
     --save_dir ./results/my_bedroom
 ```
+
+### Headless Server Usage
+
+On headless servers (no display), use `xvfb-run` for thumbnail rendering during GPT-4 Vision verification:
+
+```bash
+xvfb-run -a uv run python generate_scene.py \
+    --task_description "a cozy bedroom with a queen bed" \
+    --objathor_dir /path/to/objathor-data \
+    --objathor_assets_dir /path/to/objathor-data/assets \
+    --save_dir ./results/my_bedroom
+```
+
+Example:
+```bash
+xvfb-run -a uv run python generate_scene.py \
+    --task_description "a cozy bedroom with a queen bed, 4m x 5m" \
+    --objathor_dir /home/ubuntu/SceneEval/_data/2023_09_23 \
+    --objathor_assets_dir /home/ubuntu/SceneEval/_data/2023_09_23/assets \
+    --room_width 4.0 \
+    --room_depth 5.0 \
+    --save_dir ./results/my_bedroom
+```
+
+Install xvfb if needed: `sudo apt-get install xvfb`
+
+Alternatively, use `--skip_verification` to skip the GPT-4 Vision verification step (assets are accepted based on CLIP+SBERT scores alone).
 
 This will:
 1. Generate layout criteria from the task description using GPT-4o

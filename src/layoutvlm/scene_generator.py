@@ -33,6 +33,7 @@ class SceneGenerator:
         self,
         objathor_dir: str,
         asset_dir: str,
+        objathor_assets_dir: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         retrieval_threshold: float = 28.0,
         top_k: int = 5,
@@ -44,6 +45,7 @@ class SceneGenerator:
         Args:
             objathor_dir: Path to objathor data with pre-computed features
             asset_dir: Directory to download/cache processed assets
+            objathor_assets_dir: Path to pre-downloaded objathor assets (optional)
             openai_api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             retrieval_threshold: CLIP similarity threshold for retrieval
             top_k: Number of candidates to consider per object
@@ -52,6 +54,7 @@ class SceneGenerator:
         self.objathor_dir = Path(objathor_dir)
         self.asset_dir = Path(asset_dir)
         self.asset_dir.mkdir(parents=True, exist_ok=True)
+        self.objathor_assets_dir = Path(objathor_assets_dir) if objathor_assets_dir else None
         self.retrieval_threshold = retrieval_threshold
         self.top_k = top_k
         self.model = model
@@ -77,15 +80,15 @@ class SceneGenerator:
         import open_clip
         from sentence_transformers import SentenceTransformer
 
-        # Load CLIP model
+        # Load CLIP model (ViT-L-14 with laion2b weights, same as Holodeck/objathor)
         self._clip_model, _, _ = open_clip.create_model_and_transforms(
-            "ViT-L-14", pretrained="openai"
+            "ViT-L-14", pretrained="laion2b_s32b_b82k"
         )
         self._clip_tokenizer = open_clip.get_tokenizer("ViT-L-14")
         self._clip_model.eval()
 
-        # Load SBERT model
-        self._sbert_model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Load SBERT model (768-dim model matching pre-computed features)
+        self._sbert_model = SentenceTransformer("all-mpnet-base-v2")
 
         # Initialize retriever
         self._retriever = ObjaverseRetriever(
@@ -274,7 +277,7 @@ class SceneGenerator:
         """
         asset_dir = self.asset_dir / asset_id
 
-        # Check if already downloaded
+        # Check if already downloaded/processed
         glb_path = asset_dir / f"{asset_id}.glb"
         data_path = asset_dir / "data.json"
         if glb_path.exists() and data_path.exists():
@@ -283,18 +286,28 @@ class SceneGenerator:
         asset_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            import objaverse
-
-            # Download the asset
-            objects = objaverse.load_objects([asset_id])
-            if asset_id not in objects:
-                print(f"Warning: Could not download asset {asset_id}")
-                return None
-
-            source_path = objects[asset_id]
-
-            # Copy/move to our asset directory
             import shutil
+            source_path = None
+
+            # First check if asset exists in local objathor assets directory
+            if self.objathor_assets_dir is not None:
+                local_asset_dir = self.objathor_assets_dir / asset_id
+                local_glb = local_asset_dir / f"{asset_id}.glb"
+                if local_glb.exists():
+                    source_path = str(local_glb)
+                    print(f"  Using local asset: {asset_id}")
+
+            # If not found locally, download from Objaverse
+            if source_path is None:
+                import objaverse
+                print(f"  Downloading from Objaverse: {asset_id}")
+                objects = objaverse.load_objects([asset_id])
+                if asset_id not in objects:
+                    print(f"Warning: Could not download asset {asset_id}")
+                    return None
+                source_path = objects[asset_id]
+
+            # Copy to our asset directory
             shutil.copy(source_path, glb_path)
 
             # Get metadata from retriever
@@ -303,7 +316,23 @@ class SceneGenerator:
 
             # Create data.json with required format
             if metadata:
-                bbox = metadata.get("boundingBox", {})
+                # Extract bounding box from thor_metadata if available
+                thor_metadata = metadata.get("thor_metadata", {})
+                asset_metadata = thor_metadata.get("assetMetadata", {})
+                thor_bbox = asset_metadata.get("boundingBox", {})
+
+                # Compute dimensions from min/max if available
+                if thor_bbox.get("min") and thor_bbox.get("max"):
+                    bbox_x = thor_bbox["max"]["x"] - thor_bbox["min"]["x"]
+                    bbox_y = thor_bbox["max"]["y"] - thor_bbox["min"]["y"]
+                    bbox_z = thor_bbox["max"]["z"] - thor_bbox["min"]["z"]
+                else:
+                    # Fallback to size if available (in cm, convert to meters)
+                    size = metadata.get("size", [100, 100, 100])
+                    bbox_x = size[0] / 100.0
+                    bbox_y = size[1] / 100.0
+                    bbox_z = size[2] / 100.0
+
                 data = {
                     "annotations": {
                         "category": metadata.get("category", "object"),
@@ -316,9 +345,9 @@ class SceneGenerator:
                     },
                     "assetMetadata": {
                         "boundingBox": {
-                            "x": bbox.get("x", 1.0),
-                            "y": bbox.get("y", 1.0),
-                            "z": bbox.get("z", 1.0),
+                            "x": bbox_x,
+                            "y": bbox_y,
+                            "z": bbox_z,
                         }
                     },
                 }

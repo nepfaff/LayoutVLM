@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-from box_intersection_2d import oriented_box_intersection_2d
-from min_enclosing_box import smallest_bounding_box
+from .box_intersection_2d import oriented_box_intersection_2d
+from .min_enclosing_box import smallest_bounding_box
 
 def box2corners_th(box:torch.Tensor)-> torch.Tensor:
     """convert box coordinate to corners
@@ -242,6 +242,41 @@ def eigenvector_22(x:torch.Tensor):
     v1 = v1 / n1
     v2 = v2 / n2
     return v1.float(), v2.float()
+
+def cal_my_giou(corners1: torch.Tensor, corners2: torch.Tensor,
+                area1: torch.Tensor, area2: torch.Tensor,
+                enclosing_type: str = "smallest"):
+    """Calculate GIoU directly from corners (custom function for LayoutVLM).
+
+    Args:
+        corners1 (torch.Tensor): (B, N, 4, 2) corner coordinates of first boxes
+        corners2 (torch.Tensor): (B, N, 4, 2) corner coordinates of second boxes
+        area1 (torch.Tensor): (B, N) areas of first boxes
+        area2 (torch.Tensor): (B, N) areas of second boxes
+        enclosing_type (str): type of enclosing box calculation
+
+    Returns:
+        giou_loss (torch.Tensor): (B, N) GIoU loss values
+        iou (torch.Tensor): (B, N) IoU values
+    """
+    # Calculate intersection area using oriented box intersection
+    inter_area, _ = oriented_box_intersection_2d(corners1, corners2)  # (B, N)
+
+    # Calculate union
+    u = area1 + area2 - inter_area
+
+    # Calculate IoU
+    iou = inter_area / (u + 1e-8)
+
+    # Calculate enclosing box
+    w, h = enclosing_box(corners1, corners2, enclosing_type)
+    area_c = w * h
+
+    # Calculate GIoU loss
+    giou_loss = 1. - iou + (area_c - u) / (area_c + 1e-8)
+
+    return giou_loss, iou
+
 
 if __name__ == "__main__":
     box3d1 = np.array([0,0,0,3,3,3,0])

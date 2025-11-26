@@ -39,6 +39,9 @@ dependencies = [
     "compress-pickle>=2.1.0",
     "objathor>=0.0.8",
     "objaverse>=0.1.7",
+    "attrs>=25.4.0",
+    "setuptools>=80.9.0",
+    "pyglet<2",
 ]
 
 [tool.setuptools.packages.find]

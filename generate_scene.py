@@ -55,6 +55,12 @@ def parse_args():
         help="Directory to download/cache processed assets (default: ./objaverse_processed)",
     )
     parser.add_argument(
+        "--objathor_assets_dir",
+        type=str,
+        default=None,
+        help="Path to pre-downloaded objathor assets directory (optional, will download from Objaverse if not provided)",
+    )
+    parser.add_argument(
         "--save_dir",
         type=str,
         default="./results/generated_scene",
@@ -113,6 +119,7 @@ def main():
     generator = SceneGenerator(
         objathor_dir=args.objathor_dir,
         asset_dir=args.asset_dir,
+        objathor_assets_dir=args.objathor_assets_dir,
         retrieval_threshold=args.retrieval_threshold,
         top_k=args.top_k,
         model=args.model,
