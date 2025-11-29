@@ -4,19 +4,50 @@
 import argparse
 import csv
 import subprocess
+import sys
 from pathlib import Path
 
 # Hardcoded paths
 CSV_FILE = "/home/ubuntu/LayoutVLM/prompts.csv"
-OBJATHOR_DIR = "/home/ubuntu/SceneEval/_data/2023_09_23"
-OBJATHOR_ASSETS_DIR = "/home/ubuntu/SceneEval/_data/objathor-assets"
-RESULTS_DIR = "/home/ubuntu/LayoutVLM/results"
+RESULTS_DIR = "/home/ubuntu/LayoutVLM/results_curated"
+
+# Asset source configurations
+ASSET_CONFIGS = {
+    "curated": {
+        # Note: Only 126 of 675 curated assets have matching features in 2023_09_23
+        "objathor_dir": "/home/ubuntu/LayoutVLM/test_asset_dir",
+        "objathor_assets_dir": "/home/ubuntu/LayoutVLM/test_asset_dir",
+        "description": "675 curated assets (126 with features from 2023_09_23)",
+    },
+    "full": {
+        "objathor_dir": "/home/ubuntu/SceneEval/_data/objathor-assets/2023_09_23",
+        "objathor_assets_dir": "/home/ubuntu/SceneEval/_data/objathor-assets",
+        "description": "Full 50K assets from objathor-assets",
+    },
+}
 
 def main():
     parser = argparse.ArgumentParser(description="Run scene generation from CSV prompts")
+    parser.add_argument(
+        "--asset_source",
+        type=str,
+        required=True,
+        choices=["curated", "full"],
+        help="Asset source: 'curated' (675 assets) or 'full' (50K assets)"
+    )
     parser.add_argument("--start_id", type=int, default=None, help="Start from this ID (inclusive)")
     parser.add_argument("--end_id", type=int, default=None, help="End at this ID (inclusive)")
     args = parser.parse_args()
+
+    # Get asset config
+    config = ASSET_CONFIGS[args.asset_source]
+    objathor_dir = config["objathor_dir"]
+    objathor_assets_dir = config["objathor_assets_dir"]
+
+    print(f"Using asset source: {args.asset_source}")
+    print(f"  {config['description']}")
+    print(f"  objathor_dir: {objathor_dir}")
+    print(f"  objathor_assets_dir: {objathor_assets_dir}")
 
     results_dir = Path(RESULTS_DIR)
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -45,8 +76,8 @@ def main():
         cmd = [
             "xvfb-run", "-a", "uv", "run", "python", "generate_scene.py",
             "--task_description", description,
-            "--objathor_dir", OBJATHOR_DIR,
-            "--objathor_assets_dir", OBJATHOR_ASSETS_DIR,
+            "--objathor_dir", objathor_dir,
+            "--objathor_assets_dir", objathor_assets_dir,
             "--save_dir", str(save_dir),
         ]
 
