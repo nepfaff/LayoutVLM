@@ -133,6 +133,10 @@ class SandBoxEnv:
             ### this is for the random instance that LLMs generate (for constraints with absolute coordinates)
             asset_var_name = "_".join(instance_id.split("_")[:-1])
             instance_idx = int(instance_id.split("_")[-1])
+            # Skip assets that don't exist (LLM hallucination)
+            if asset_var_name not in self.local_vars:
+                print(f"Warning: Asset '{asset_var_name}' not found in scene, skipping (LLM may have hallucinated this asset)")
+                continue
             if len(self.local_vars[asset_var_name].placements[instance_idx].rotation) == 1:
                 self.local_vars[asset_var_name].placements[instance_idx].rotation = [0, 0, self.local_vars[asset_var_name].placements[instance_idx].rotation[0]]
             # change all to radians

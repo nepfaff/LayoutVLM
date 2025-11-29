@@ -431,8 +431,7 @@ class LayoutVLM:
 
 
         for attempt_idx in range(MAX_ATTEMPTS):
-            # try:
-            if True:
+            try:
                 # clear constraints
                 self.sandbox.execute_code("solver.constraints = []\n")
                 save_path = f"{_save_dir}/llm_output_program_{attempt_idx}.py"
@@ -440,15 +439,17 @@ class LayoutVLM:
                                                                  current_scene_image_path_dict,
                                                                  current_group_asset_img_path_dict,
                                                                  program_save_path=save_path)
-                
-                # print("BEFORE")
-                # print(constraint_program)
+
+                # Check for LLM refusal messages (API occasionally returns these instead of code)
+                refusal_patterns = ["I'm sorry", "I cannot", "I can't", "I am unable"]
+                if any(pattern in constraint_program for pattern in refusal_patterns):
+                    print(f"Warning: LLM returned refusal message, retrying... (attempt {attempt_idx + 1}/{MAX_ATTEMPTS})")
+                    continue
+
                 # Perform replacement
                 for old_asset, new_asset in replacement_map.items():
                     constraint_program = constraint_program.replace(old_asset, new_asset)
-                # print("AFTER")
-                # print(constraint_program)
-                #import pdb; pdb.set_trace()
+
                 if constraint_program == "":
                     print("Constraint program is empty")
                     continue
@@ -459,8 +460,10 @@ class LayoutVLM:
                     placed_assets, group_assets, constraint_program, save_dir=_save_dir, only_initialize=only_initialize
                 )
                 break
-            # except Exception as e:
-            #     print("Retrying ...", e)
+            except Exception as e:
+                print(f"Error on attempt {attempt_idx + 1}/{MAX_ATTEMPTS}: {e}")
+                if attempt_idx == MAX_ATTEMPTS - 1:
+                    print(f"Warning: Failed to solve group after {MAX_ATTEMPTS} attempts, skipping...")
 
         return placed_assets
 

@@ -330,8 +330,7 @@ def render_existing_scene(placed_assets, task, save_dir, add_hdri=True, topdown_
             try:
                 asset_scale = get_obj_dimensions(loaded, frame="object")
             except Exception as e:
-                print(f"Error getting object dimensions: {e}, using the bounding box instead")
-                import pdb;pdb.set_trace()
+                print(f"Error getting object dimensions: {e}, skipping asset")
                 continue
 
             # asset_scale_2 = trimesh.load(file_path).bounding_box.extents

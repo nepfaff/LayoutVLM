@@ -94,6 +94,13 @@ def parse_args():
         action="store_true",
         help="Only generate scene JSON, do not run LayoutVLM optimization",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="finetuned",
+        choices=["one_shot", "finetuned", "no_image", "no_visual_coordinate", "no_visual_assetname", "no_visual_mark"],
+        help="LayoutVLM mode: 'finetuned' (iterative with visual feedback, default), 'one_shot' (single pass, no intermediate renders)",
+    )
     return parser.parse_args()
 
 
@@ -134,11 +141,7 @@ def main():
         skip_verification=args.skip_verification,
     )
 
-    # Save scene configuration
     scene_json_path = save_dir / "scene.json"
-    with open(scene_json_path, "w") as f:
-        json.dump(scene_config, f, indent=2)
-    print(f"\nScene configuration saved to: {scene_json_path}")
 
     if args.scene_only:
         print("\n--scene_only specified, skipping LayoutVLM optimization")
@@ -157,6 +160,11 @@ def main():
     # Prepare assets for LayoutVLM
     scene_config = prepare_task_assets(scene_config, args.asset_dir)
 
+    # Save scene configuration (after prepare_task_assets so paths are populated)
+    with open(scene_json_path, "w") as f:
+        json.dump(scene_config, f, indent=2)
+    print(f"\nScene configuration saved to: {scene_json_path}")
+
     # Check if we have any assets
     if not scene_config.get("assets"):
         print("Warning: No assets in scene configuration. Cannot run optimization.")
@@ -164,7 +172,7 @@ def main():
 
     # Initialize and run LayoutVLM
     layout_solver = LayoutVLM(
-        mode="one_shot",
+        mode=args.mode,
         save_dir=str(save_dir),
         asset_source="objaverse",
     )
