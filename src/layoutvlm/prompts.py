@@ -85,3 +85,26 @@ object description: {object_description}
 object client requested: {object_looking_for}
 Remember, you should only return "True" if the object should be placed in the room / tabletop and "False" if the object should not be.
 Do not include any other words in your response. It is extremely important."""
+
+# Prompt 4: Room Dimension Estimation (inspired by Holodeck)
+ROOM_DIMENSIONS_PROMPT = """You are an experienced interior designer. Given a room description, estimate appropriate room dimensions in meters.
+
+Guidelines:
+1. Room dimensions (width and depth) should typically be between 3m and 8m each.
+2. Maximum room area should not exceed 48 square meters.
+3. Consider the room type and contents when estimating size:
+   - Bedrooms: typically 3-5m per side
+   - Living rooms: typically 4-6m per side
+   - Kitchens: typically 3-4m per side
+   - Dining rooms: typically 3-5m per side
+   - Bathrooms: typically 2-3m per side
+   - Offices/studies: typically 3-4m per side
+4. If specific dimensions are mentioned in the description (e.g., "5m x 5m"), use those exactly.
+5. Consider the number and size of objects mentioned - more furniture requires more space.
+
+Room description: {task_description}
+
+Return ONLY a JSON object with width and depth in meters, like this:
+{{"width": 4.0, "depth": 5.0}}
+
+Do not include any other text."""

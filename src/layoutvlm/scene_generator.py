@@ -23,6 +23,7 @@ from .prompts import (
     ASSET_LIST_PROMPT,
     ASSET_VERIFICATION_PROMPT,
     LAYOUT_CRITERIA_PROMPT,
+    ROOM_DIMENSIONS_PROMPT,
 )
 
 
@@ -120,6 +121,71 @@ class SceneGenerator:
         )
 
         return response.choices[0].message.content.strip()
+
+    def estimate_room_dimensions(self, task_description: str) -> tuple[float, float]:
+        """
+        Estimate room dimensions from task description using GPT-4o-mini.
+
+        Inspired by Holodeck's guidelines:
+        - Room dimensions typically 3-8m per side
+        - Max area 48 m²
+
+        Args:
+            task_description: Natural language description of the room
+
+        Returns:
+            Tuple of (width, depth) in meters
+        """
+        # First check if dimensions are explicitly mentioned in the description
+        import re
+        # Match patterns like "5m x 5m", "5m by 5m", "5 x 5", etc.
+        pattern = r'(\d+(?:\.\d+)?)\s*m?\s*[xX×by]+\s*(\d+(?:\.\d+)?)\s*m?'
+        match = re.search(pattern, task_description)
+        if match:
+            width = float(match.group(1))
+            depth = float(match.group(2))
+            print(f"  Found explicit dimensions in description: {width}m x {depth}m")
+            return width, depth
+
+        # Use GPT-4o-mini for fast/cheap estimation
+        prompt = ROOM_DIMENSIONS_PROMPT.format(task_description=task_description)
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",  # Use mini model for speed and cost
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=50,
+            temperature=0.3,  # Lower temperature for more consistent results
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # Parse JSON response
+        try:
+            # Find JSON in response
+            json_match = re.search(r'\{[^{}]+\}', content)
+            if json_match:
+                import json
+                dims = json.loads(json_match.group())
+                width = float(dims.get("width", 4.0))
+                depth = float(dims.get("depth", 5.0))
+            else:
+                print(f"Warning: Could not parse dimensions from: {content}")
+                width, depth = 4.0, 5.0
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Failed to parse dimensions: {e}")
+            width, depth = 4.0, 5.0
+
+        # Clamp to reasonable bounds (Holodeck guidelines)
+        width = max(2.0, min(8.0, width))
+        depth = max(2.0, min(8.0, depth))
+
+        # Ensure area doesn't exceed 48 m²
+        if width * depth > 48:
+            scale = (48 / (width * depth)) ** 0.5
+            width *= scale
+            depth *= scale
+
+        return width, depth
 
     def generate_asset_list(
         self,
@@ -405,25 +471,40 @@ class SceneGenerator:
     def generate_scene(
         self,
         task_description: str,
-        room_width: float = 4.0,
-        room_depth: float = 5.0,
+        room_width: Optional[float] = None,
+        room_depth: Optional[float] = None,
         wall_height: float = 2.5,
         skip_verification: bool = False,
+        auto_dimensions: bool = True,
     ) -> dict:
         """
         Generate a complete scene configuration.
 
         Args:
             task_description: Natural language description of the room
-            room_width: Room width in meters
-            room_depth: Room depth in meters
+            room_width: Room width in meters (if None, will be estimated)
+            room_depth: Room depth in meters (if None, will be estimated)
             wall_height: Wall height in meters
             skip_verification: Skip GPT-4 Vision verification step
+            auto_dimensions: If True and dimensions not provided, estimate them
 
         Returns:
             Scene configuration dictionary compatible with LayoutVLM
         """
         print(f"Generating scene for: {task_description}")
+
+        # Estimate room dimensions if not provided
+        if room_width is None or room_depth is None:
+            if auto_dimensions:
+                print("Step 0: Estimating room dimensions...")
+                est_width, est_depth = self.estimate_room_dimensions(task_description)
+                room_width = room_width if room_width is not None else est_width
+                room_depth = room_depth if room_depth is not None else est_depth
+                print(f"  Estimated dimensions: {room_width:.1f}m x {room_depth:.1f}m")
+            else:
+                # Use defaults
+                room_width = room_width if room_width is not None else 4.0
+                room_depth = room_depth if room_depth is not None else 5.0
 
         # Step 1: Generate layout criteria
         print("Step 1: Generating layout criteria...")

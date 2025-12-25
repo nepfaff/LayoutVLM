@@ -9,9 +9,10 @@ Based on Appendix B.1 of the LayoutVLM paper.
 
 import argparse
 import json
-import os
-import sys
 from pathlib import Path
+
+# Default to curated assets (674 assets with pre-computed features) to match paper
+DEFAULT_OBJATHOR_DIR = "/home/ubuntu/LayoutVLM/test_asset_dir"
 
 
 def parse_args():
@@ -27,14 +28,14 @@ def parse_args():
     parser.add_argument(
         "--room_width",
         type=float,
-        default=4.0,
-        help="Room width in meters (default: 4.0)",
+        default=None,
+        help="Room width in meters (if not specified, will be estimated from description)",
     )
     parser.add_argument(
         "--room_depth",
         type=float,
-        default=5.0,
-        help="Room depth in meters (default: 5.0)",
+        default=None,
+        help="Room depth in meters (if not specified, will be estimated from description)",
     )
     parser.add_argument(
         "--wall_height",
@@ -43,10 +44,15 @@ def parse_args():
         help="Wall height in meters (default: 2.5)",
     )
     parser.add_argument(
+        "--no_auto_dimensions",
+        action="store_true",
+        help="Disable automatic room dimension estimation (use 4x5m defaults instead)",
+    )
+    parser.add_argument(
         "--objathor_dir",
         type=str,
-        required=True,
-        help="Path to objathor data directory with pre-computed CLIP/SBERT features",
+        default=DEFAULT_OBJATHOR_DIR,
+        help=f"Path to objathor data directory with pre-computed CLIP/SBERT features (default: curated 674 assets)",
     )
     parser.add_argument(
         "--asset_dir",
@@ -57,8 +63,8 @@ def parse_args():
     parser.add_argument(
         "--objathor_assets_dir",
         type=str,
-        default=None,
-        help="Path to pre-downloaded objathor assets directory (optional, will download from Objaverse if not provided)",
+        default=DEFAULT_OBJATHOR_DIR,
+        help=f"Path to pre-downloaded objathor assets directory (default: curated assets)",
     )
     parser.add_argument(
         "--save_dir",
@@ -119,7 +125,10 @@ def main():
     print("LayoutVLM Open-Set Scene Generation Pipeline")
     print("=" * 60)
     print(f"Task: {args.task_description}")
-    print(f"Room size: {args.room_width}m x {args.room_depth}m x {args.wall_height}m")
+    if args.room_width is not None and args.room_depth is not None:
+        print(f"Room size: {args.room_width}m x {args.room_depth}m x {args.wall_height}m")
+    else:
+        print(f"Room size: auto-estimated from description (wall height: {args.wall_height}m)")
     print(f"Output: {save_dir}")
     print("=" * 60)
 
@@ -139,6 +148,7 @@ def main():
         room_depth=args.room_depth,
         wall_height=args.wall_height,
         skip_verification=args.skip_verification,
+        auto_dimensions=not args.no_auto_dimensions,
     )
 
     scene_json_path = save_dir / "scene.json"

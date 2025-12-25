@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 # Hardcoded paths
-CSV_FILE = "/home/ubuntu/LayoutVLM/prompts.csv"
-RESULTS_DIR = "/home/ubuntu/LayoutVLM/results_curated"
+CSV_FILE = str(Path.home() / "SceneEval/input/annotations.csv")
+RESULTS_DIR = "/home/ubuntu/LayoutVLM/results"
 
 # Asset source configurations
 ASSET_CONFIGS = {
@@ -43,9 +43,9 @@ def main():
     parser.add_argument(
         "--asset_source",
         type=str,
-        required=True,
         choices=["curated", "full"],
-        help="Asset source: 'curated' (675 assets) or 'full' (50K assets)"
+        default="curated",
+        help="Asset source: 'curated' (674 assets) or 'full' (50K assets)"
     )
     parser.add_argument("--start_id", type=int, default=None, help="Start from this ID (inclusive)")
     parser.add_argument("--end_id", type=int, default=None, help="End at this ID (inclusive)")
