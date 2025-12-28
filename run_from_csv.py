@@ -66,6 +66,11 @@ def main():
         action="store_true",
         help="Save .blend files when rendering (requires --render_final)",
     )
+    parser.add_argument(
+        "--skip_existing",
+        action="store_true",
+        help="Skip scenes that already have results (save_dir exists and contains files)",
+    )
     args = parser.parse_args()
 
     # Get asset config
@@ -97,6 +102,11 @@ def main():
 
         description = row["Description"]
         save_dir = results_dir / f"scene_{prompt_id:03d}"
+
+        # Skip if results already exist
+        if args.skip_existing and save_dir.exists() and any(save_dir.iterdir()):
+            print(f"Skipping scene {prompt_id} (results already exist in {save_dir})")
+            continue
 
         print(f"\n{'='*60}")
         print(f"Scene {prompt_id} ({i+1}/{total}): {description[:50]}...")
