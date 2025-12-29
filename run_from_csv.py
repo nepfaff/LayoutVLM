@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -71,6 +72,12 @@ def main():
         action="store_true",
         help="Skip scenes that already have results (save_dir exists and contains files)",
     )
+    parser.add_argument(
+        "--max_retries",
+        type=int,
+        default=10,
+        help="Max retries for failed scenes (scenes without group_1 directory)",
+    )
     args = parser.parse_args()
 
     # Get asset config
@@ -121,9 +128,28 @@ def main():
             "--mode", args.mode,
         ]
 
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            print(f"Warning: Scene {prompt_id} failed with code {result.returncode}")
+        # Retry logic: keep trying until group_1 exists or max retries reached
+        for attempt in range(args.max_retries):
+            if attempt > 0:
+                print(f"\n--- Retry {attempt}/{args.max_retries - 1} for scene {prompt_id} (no group_1 found) ---\n")
+                # Clean up failed attempt
+                if save_dir.exists():
+                    shutil.rmtree(save_dir)
+
+            result = subprocess.run(cmd)
+            if result.returncode != 0:
+                print(f"Warning: Scene {prompt_id} failed with code {result.returncode}")
+                continue
+
+            # Check if group_1 exists (indicates successful grouping)
+            group_1_dir = save_dir / "group_1"
+            if group_1_dir.exists():
+                print(f"Scene {prompt_id} completed successfully (group_1 exists)")
+                break
+            else:
+                print(f"Warning: Scene {prompt_id} missing group_1 directory")
+        else:
+            print(f"ERROR: Scene {prompt_id} failed after {args.max_retries} attempts")
             continue
 
         # Render final scene with actual 3D assets
