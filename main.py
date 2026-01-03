@@ -44,7 +44,7 @@ def prepare_task_assets(task, asset_dir):
     category_count = collections.defaultdict(int)
     for uid, duplicated_assets in all_data.items():
         category_var_name = duplicated_assets[0]['annotations']['category']
-        category_var_name = category_var_name.replace('-', "_").replace(" ", "_").replace("'", "_").replace("/", "_").replace(",", "_").lower()
+        category_var_name = category_var_name.replace('-', "_").replace(" ", "_").replace("'", "_").replace("/", "_").replace(",", "_").replace("(", "_").replace(")", "_").lower()
         category_count[category_var_name] += 1
 
     task["assets"] = {}
@@ -52,7 +52,7 @@ def prepare_task_assets(task, asset_dir):
     
     for uid, duplicated_assets in all_data.items():
         category_var_name = duplicated_assets[0]['annotations']['category']
-        category_var_name = category_var_name.replace('-', "_").replace(" ", "_").replace("'", "_").replace("/", "_").replace(",", "_").lower()
+        category_var_name = category_var_name.replace('-', "_").replace(" ", "_").replace("'", "_").replace("/", "_").replace(",", "_").replace("(", "_").replace(")", "_").lower()
         category_idx[category_var_name] += 1
         
         for instance_idx, data in enumerate(duplicated_assets):

@@ -10,7 +10,8 @@ from pathlib import Path
 
 # Hardcoded paths
 CSV_FILE = str(Path.home() / "SceneEval/input/annotations.csv")
-RESULTS_DIR = "/home/ubuntu/LayoutVLM/results"
+RESULTS_DIR_CURATED = str(Path.home() / "efs/nicholas/scene-agent-eval-scenes/layoutvlm_curated")
+RESULTS_DIR_OBJAVERSE = str(Path.home() / "efs/nicholas/scene-agent-eval-scenes/layoutvlm_objaverse")
 
 # Asset source configurations
 ASSET_CONFIGS = {
@@ -38,8 +39,8 @@ def main():
     parser.add_argument(
         "--results_dir",
         type=str,
-        default=RESULTS_DIR,
-        help=f"Directory to save results (default: {RESULTS_DIR})"
+        default=None,
+        help="Directory to save results (default: EFS based on asset_source)"
     )
     parser.add_argument(
         "--asset_source",
@@ -85,6 +86,13 @@ def main():
     objathor_dir = config["objathor_dir"]
     objathor_assets_dir = config["objathor_assets_dir"]
 
+    # Set default results_dir based on asset_source
+    if args.results_dir is None:
+        if args.asset_source == "curated":
+            args.results_dir = RESULTS_DIR_CURATED
+        else:
+            args.results_dir = RESULTS_DIR_OBJAVERSE
+
     print(f"Using asset source: {args.asset_source}")
     print(f"  {config['description']}")
     print(f"  objathor_dir: {objathor_dir}")
@@ -110,10 +118,12 @@ def main():
         description = row["Description"]
         save_dir = results_dir / f"scene_{prompt_id:03d}"
 
-        # Skip if results already exist
-        if args.skip_existing and save_dir.exists() and any(save_dir.iterdir()):
-            print(f"Skipping scene {prompt_id} (results already exist in {save_dir})")
-            continue
+        # Skip if results already exist (check for actual renders, not just any files)
+        if args.skip_existing:
+            renders = list(save_dir.glob("group_*/top_down_rendering.png"))
+            if renders:
+                print(f"Skipping scene {prompt_id} (render already exists in {save_dir})")
+                continue
 
         print(f"\n{'='*60}")
         print(f"Scene {prompt_id} ({i+1}/{total}): {description[:50]}...")
