@@ -104,7 +104,14 @@ def parse_args():
         "--mode",
         type=str,
         default="finetuned",
-        choices=["one_shot", "finetuned", "no_image", "no_visual_coordinate", "no_visual_assetname", "no_visual_mark"],
+        choices=[
+            "one_shot",
+            "finetuned",
+            "no_image",
+            "no_visual_coordinate",
+            "no_visual_assetname",
+            "no_visual_mark",
+        ],
         help="LayoutVLM mode: 'finetuned' (iterative with visual feedback, default), 'one_shot' (single pass, no intermediate renders)",
     )
     return parser.parse_args()
@@ -126,9 +133,13 @@ def main():
     print("=" * 60)
     print(f"Task: {args.task_description}")
     if args.room_width is not None and args.room_depth is not None:
-        print(f"Room size: {args.room_width}m x {args.room_depth}m x {args.wall_height}m")
+        print(
+            f"Room size: {args.room_width}m x {args.room_depth}m x {args.wall_height}m"
+        )
     else:
-        print(f"Room size: auto-estimated from description (wall height: {args.wall_height}m)")
+        print(
+            f"Room size: auto-estimated from description (wall height: {args.wall_height}m)"
+        )
     print(f"Output: {save_dir}")
     print("=" * 60)
 
@@ -156,7 +167,9 @@ def main():
     if args.scene_only:
         print("\n--scene_only specified, skipping LayoutVLM optimization")
         print("To run optimization manually:")
-        print(f"  python main.py --scene_json_file {scene_json_path} --asset_dir {args.asset_dir} --save_dir {save_dir}")
+        print(
+            f"  python main.py --scene_json_file {scene_json_path} --asset_dir {args.asset_dir} --save_dir {save_dir}"
+        )
         return
 
     # Run LayoutVLM optimization

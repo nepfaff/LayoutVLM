@@ -392,6 +392,11 @@ class SceneGenerator:
                     bbox_x = thor_bbox["max"]["x"] - thor_bbox["min"]["x"]
                     bbox_y = thor_bbox["max"]["y"] - thor_bbox["min"]["y"]
                     bbox_z = thor_bbox["max"]["z"] - thor_bbox["min"]["z"]
+                elif thor_bbox.get("x") is not None:
+                    # Direct x, y, z values (curated format)
+                    bbox_x = thor_bbox["x"]
+                    bbox_y = thor_bbox["y"]
+                    bbox_z = thor_bbox["z"]
                 else:
                     # Fallback to size if available (in cm, convert to meters)
                     size = metadata.get("size", [100, 100, 100])
